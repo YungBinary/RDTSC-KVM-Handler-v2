@@ -1,0 +1,43 @@
+#!/bin/bash
+# Patch rdtsc for Linux kernel 6.8-0-40-generic
+# Use at your own risk, good OpSec goes a long way...
+
+echo "Removing any existing kernel related files that contain -rdtsc in the name..."
+sudo shred -u /boot/*-rdtsc
+
+sudo rm -rf ./linux-6.8.0
+sudo apt source linux-image-unsigned-6.8.0-45-generic
+sudo chown -R $USER:$USER linux-6.8.0
+sudo chmod -R 777 linux-6.8.0
+cd ./linux-6.8.0
+patch -p1 < ../kernel-patch-6.8.0-45.patch
+
+# Get core count - 2 for faster make, e.g. if you have 8 cores, 6 will 
+# be used by make
+CORES=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || sysctl -n hw.ncpu)
+CORES=$(($CORES - 2))
+
+# Fix for error: ISO C90 forbids mixed declarations and code
+sed -i 's/KBUILD_CFLAGS += -Wdeclaration-after-statement/#KBUILD_CFLAGS += -Wdeclaration-after-statement/' Makefile
+
+# Fix the kernel version
+sed -i 's/SUBLEVEL = 12/SUBLEVEL = 0/' Makefile
+sed -i 's/EXTRAVERSION =/EXTRAVERSION = -45/' Makefile
+
+# Build and install the kernel
+sudo apt install libelf-dev build-essential -y
+cp ../.config .
+make -j$CORES bzImage
+make -j$CORES modules
+echo "Installing kernel modules..."
+sudo make modules_install -j$CORES
+echo "Installing kernel..."
+sudo make install
+echo "Generating initrd.img..."
+sudo update-initramfs -c -k 6.8.0-45-rdtsc
+echo "Updating GRUB bootloader..."
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+echo 'Reboot now and boot into Grub bootloader menu.'
+echo 'Then go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
+echo 'Test to see if everything worked by running pafish!'
