@@ -39,6 +39,8 @@ echo "Generating initrd.img..."
 sudo update-initramfs -c -k 6.8.0-45-rdtsc
 echo "Updating GRUB bootloader..."
 sudo grub-mkconfig -o /boot/grub/grub.cfg
+echo "Cleaning up..."
+sudo rm -rf ./linux-hwe-*
 
 read -p "Make the Grub bootloader menu visible? [y/n] " GRUBVISIBLE
 if [ "$GRUBVISIBLE" = "y" ]; then
