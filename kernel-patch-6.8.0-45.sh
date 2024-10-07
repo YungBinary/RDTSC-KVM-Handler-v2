@@ -1,15 +1,17 @@
 #!/bin/bash
-# Patch rdtsc for Linux kernel 6.8-0-40-generic
-# Use at your own risk, good OpSec goes a long way...
+# Patch rdtsc for Linux kernel 6.8.0-45-generic
 
+read -p "Make sure to enable Ubuntu Software -> Source code in Software & Updates! Press enter to continue..."
 echo "Removing any existing kernel related files that contain -rdtsc in the name..."
 sudo shred -u /boot/*-rdtsc
-
-sudo rm -rf ./linux-6.8.0
+echo "Removing any folders matching ./linux-hwe-6.8-6.8.0"
+sudo rm -rf ./linux-hwe-6.8-6.8.0
+echo "Downloading source: linux-image-unsigned-6.8.0-45-generic..."
 sudo apt source linux-image-unsigned-6.8.0-45-generic
-sudo chown -R $USER:$USER linux-6.8.0
-sudo chmod -R 777 linux-6.8.0
-cd ./linux-6.8.0
+echo "Changing permissions on downloaded source directory..."
+sudo chown -R $USER:$USER linux-hwe-6.8-6.8.0
+sudo chmod -R 777 linux-hwe-6.8-6.8.0
+cd ./linux-hwe-6.8-6.8.0
 patch -p1 < ../kernel-patch-6.8.0-45.patch
 
 # Get core count - 2 for faster make, e.g. if you have 8 cores, 6 will 
@@ -25,7 +27,7 @@ sed -i 's/SUBLEVEL = 12/SUBLEVEL = 0/' Makefile
 sed -i 's/EXTRAVERSION =/EXTRAVERSION = -45/' Makefile
 
 # Build and install the kernel
-sudo apt install libelf-dev build-essential -y
+sudo apt install git libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm build-essential -y
 cp ../.config .
 make -j$CORES bzImage
 make -j$CORES modules
@@ -37,7 +39,5 @@ echo "Generating initrd.img..."
 sudo update-initramfs -c -k 6.8.0-45-rdtsc
 echo "Updating GRUB bootloader..."
 sudo grub-mkconfig -o /boot/grub/grub.cfg
-
-echo 'Reboot now and boot into Grub bootloader menu.'
+echo 'Reboot highly recommended! Boot into Grub bootloader menu.'
 echo 'Then go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
-echo 'Test to see if everything worked by running pafish!'
