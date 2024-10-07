@@ -39,5 +39,14 @@ echo "Generating initrd.img..."
 sudo update-initramfs -c -k 6.8.0-45-rdtsc
 echo "Updating GRUB bootloader..."
 sudo grub-mkconfig -o /boot/grub/grub.cfg
-echo 'Reboot highly recommended! Boot into Grub bootloader menu.'
-echo 'Then go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
+
+read -p "Would you rather make the Grub bootloader menu visible? [y/n] " GRUBVISIBLE
+if [ "$GRUBVISIBLE" = "y" ]; then
+  sed -i 's/GRUB_TIMEOUT_STYLE=hidden/#GRUB_TIMEOUT_STYLE=hidden/' /etc/default/grub
+  sed -i 's/GRUB_TIMEOUT=0/GRUB_TIMEOUT=-1/' /etc/default/grub
+else
+  echo 'Boot into Grub bootloader menu by holding Shift (BIOS) or Esc (UEFI).'
+fi
+
+echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
+
