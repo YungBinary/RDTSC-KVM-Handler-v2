@@ -24,3 +24,7 @@ You can play with ticks if you want to:
 Run the bash script and everything will be done for you:
 
 * sudo bash kernel-patch-6.8.0-45.sh
+
+# Applying ACS Override Patch
+
+In the event you are trying to pass through devices like GPU, SSD, or USB controllers to your virtual machine AND your devices are in conflicting IOMMU groups, specify "y" when asked if you'd like to apply the ACS override patch. This patch forces the linux kernel to separate PCI devices into their own IOMMU groups. For more information, see https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#Bypassing_the_IOMMU_groups_(ACS_override_patch)
