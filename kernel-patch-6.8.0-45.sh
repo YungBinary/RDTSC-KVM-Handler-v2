@@ -62,7 +62,7 @@ if [ "$APPLYACS" = "y" ]; then
       echo "Boot parameter pcie_acs_override already in /etc/default/grub... skipping"
     else
       echo "Make sure to edit /etc/default/grub and add the following to your boot options: "
-      echo "intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction"
+      echo "intel_iommu=on pcie_acs_override=downstream,multifunction"
   fi
 fi
 
