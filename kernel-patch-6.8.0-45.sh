@@ -17,16 +17,9 @@ patch -p1 < ../kernel-patch-6.8.0-45.patch
 read -p "Would you like to apply the ACS override patch for PCI devices ? [y/n] " APPLYACS
 if [ "$APPLYACS" = "y" ]; then
   patch -p1 < ../acso-6.8.0-45.patch
-  if grep -R "pcie_acs_override" "/etc/default/grub" 
-    then
-      echo "Boot parameter pcie_acs_override already in /etc/default/grub... skipping"
-    else
-      sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT='/&intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction /" /etc/default/grub
-      sed -i 's/GRUB_CMDLINE_LINUX="intel_iommu=on"/GRUB_CMDLINE_LINUX=""' /etc/default/grub
-  fi
 fi
 
-# Get core count - 2 for faster make, e.g. if you have 8 cores, 6 will 
+# Get core count - 2 for faster make, e.g. if you have 8 cores, 6 will
 # be used by make
 CORES=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || sysctl -n hw.ncpu)
 CORES=$(($CORES - 2))
@@ -39,7 +32,7 @@ sed -i 's/SUBLEVEL = 12/SUBLEVEL = 0/' Makefile
 sed -i 's/EXTRAVERSION =/EXTRAVERSION = -45/' Makefile
 
 # Build and install the kernel
-sudo apt install git libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm build-essential -y
+sudo apt install git libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev autoconf llvm build-essential -y
 cp ../.config .
 make -j$CORES bzImage
 make -j$CORES modules
@@ -61,6 +54,16 @@ if [ "$GRUBVISIBLE" = "y" ]; then
   sudo update-grub
 else
   echo 'Boot into Grub bootloader menu by holding Shift (BIOS) or Esc (UEFI).'
+fi
+
+if [ "$APPLYACS" = "y" ]; then
+  if grep -R "pcie_acs_override" "/etc/default/grub"
+    then
+      echo "Boot parameter pcie_acs_override already in /etc/default/grub... skipping"
+    else
+      echo "Make sure to edit /etc/default/grub and add the following to your boot options: "
+      echo "intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction"
+  fi
 fi
 
 echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
