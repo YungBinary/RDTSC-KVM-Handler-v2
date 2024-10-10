@@ -2,6 +2,8 @@
 # Patch rdtsc for Linux kernel 6.8.0-45-generic
 
 read -p "Make sure to enable Ubuntu Software -> Source code in Software & Updates! Press enter to continue..."
+sudo apt update && sudo apt upgrade
+sudo apt install dpkg-dev -y
 echo "Removing any existing kernel related files that contain -rdtsc in the name..."
 sudo shred -u /boot/*-rdtsc
 echo "Removing any folders matching ./linux-hwe-6.8-6.8.0"
@@ -62,9 +64,8 @@ if [ "$APPLYACS" = "y" ]; then
       echo "Boot parameter pcie_acs_override already in /etc/default/grub... skipping"
     else
       echo "Make sure to edit /etc/default/grub and add the following to your boot options: "
-      echo "intel_iommu=on pcie_acs_override=downstream,multifunction"
+      echo "intel_iommu=on pcie_acs_override=downstream"
   fi
 fi
 
 echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 6.8.0-45-rdtsc.'
-
