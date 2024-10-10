@@ -28,4 +28,4 @@ Run the bash script and everything will be done for you:
 # Applying ACS Override Patch
 
 In the event you are trying to pass through devices like GPU, SSD, or USB controllers to your virtual machine AND your devices are in conflicting IOMMU groups, specify "y" when asked if you'd like to apply the ACS override patch. This patch forces the linux kernel to separate PCI devices into their own IOMMU groups. For more information, see https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#Bypassing_the_IOMMU_groups_(ACS_override_patch).
-WARNING: This patch is hit or miss, might work, might not!
+WARNING: This patch is hit or miss, might work, might not! Additionally, applying this patch comes with some security risks. This could include but not be limited to observing the host graphics card's framebuffer, monitoring the memory stack of your host network card, accessing memory of your sata controller, etc, who were both in the same real IOMMU group as the PCI device you've given to the guest. 
