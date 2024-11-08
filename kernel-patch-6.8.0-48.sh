@@ -40,6 +40,8 @@ make -j$CORES bzImage
 make -j$CORES modules
 echo "Installing kernel modules..."
 sudo make modules_install -j$CORES
+echo "Installing kernel headers..."
+sudo make headers_install -j$CORES
 echo "Installing kernel..."
 sudo make install
 echo "Generating initrd.img..."
