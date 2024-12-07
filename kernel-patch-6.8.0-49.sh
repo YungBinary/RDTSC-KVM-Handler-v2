@@ -4,8 +4,13 @@
 read -p "Make sure to enable Ubuntu Software -> Source code in Software & Updates first! Then press enter to continue..."
 sudo apt update
 sudo apt install dpkg-dev -y
-#echo "Removing any existing kernel related files that contain -rdtsc in the name..."
-#sudo shred -u /boot/*-rdtsc
+
+read -p "Delete pre-existing kernels with -rdtsc in the name? [y/n] " DELETEOLDKERNELS
+if [ "$DELETEOLDKERNELS" = "y" ]; then
+  echo "Removing existing kernels that contain -rdtsc in the name..."
+  sudo shred -u /boot/*-rdtsc
+fi
+
 echo "Removing any folders matching ./linux-hwe-6.8-6.8.0"
 sudo rm -rf ./linux-hwe-6.8-6.8.0
 echo "Downloading source: linux-image-unsigned-6.8.0-49-generic..."
