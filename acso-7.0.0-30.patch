@@ -1,8 +1,7 @@
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index e58f3bbb7..8afaea35d 100755
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4397,6 +4397,15 @@
+@@ -5114,6 +5114,15 @@
  		nomsi		[MSI] If the PCI_MSI kernel config parameter is
  				enabled, this kernel boot option can be used to
  				disable the use of MSI interrupts system-wide.
@@ -19,13 +18,12 @@ index e58f3bbb7..8afaea35d 100755
  				time in order to avoid issues like adapters
  				screaming irqs and preventing boot progress.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index ce469d84e..540fdd5d3 100755
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
-@@ -4759,6 +4759,107 @@ static int pci_quirk_zhaoxin_pcie_ports_acs(struct pci_dev *dev, u16 acs_flags)
+@@ -4815,6 +4815,107 @@
  	return false;
  }
- 
+
 +static bool acs_on_downstream;
 +static bool acs_on_multifunction;
 +
@@ -130,11 +128,11 @@ index ce469d84e..540fdd5d3 100755
  /*
   * Many Intel PCH Root Ports do provide ACS-like features to disable peer
   * transactions and validate bus numbers in requests, but do not provide an
-@@ -5158,6 +5259,7 @@ static const struct pci_dev_acs_enabled {
+@@ -5269,6 +5370,7 @@
  	{ PCI_VENDOR_ID_ZHAOXIN, PCI_ANY_ID, pci_quirk_zhaoxin_pcie_ports_acs },
  	/* Wangxun nics */
  	{ PCI_VENDOR_ID_WANGXUN, PCI_ANY_ID, pci_quirk_wangxun_nic_acs },
 +	{ PCI_ANY_ID, PCI_ANY_ID, pcie_acs_overrides },
  	{ 0 }
  };
- 
+
