@@ -7,12 +7,23 @@ echo " Target: 7.0.0-30-rdtsc"
 echo "====================================================================="
 echo ""
 
-read -p "Make sure to enable Ubuntu Software -> Source code in Software & Updates first! Then press enter to continue..."
+echo "Make sure to enable Ubuntu Software -> Source code in Software & Updates first!"
+read -p "Press any key to continue..."
 echo ""
 
 read -p "Delete pre-existing kernels with -rdtsc in the name? [y/n] " DELETEOLDKERNELS
 read -p "Would you like to apply the ACS override patch for PCI devices? [y/n] " APPLYACS
 read -p "Make the Grub bootloader menu visible? [y/n] " GRUBVISIBLE
+
+# Detect Secure Boot
+if command -v mokutil &>/dev/null; then
+  if mokutil --sb-state 2>/dev/null | grep -qi "SecureBoot enabled"; then
+    echo "WARNING: Secure Boot is ENABLED."
+    echo "Custom kernels will fail to boot with 'bad shim signature' unless"
+    echo "disable Secure Boot in BIOS settings."
+    read -p "Press any key to continue..."
+  fi
+fi
 
 echo ""
 echo "====================================================================="
@@ -73,6 +84,14 @@ echo "Installing kernel headers..."
 sudo make headers_install -j$CORES
 echo "Installing kernel..."
 sudo make install
+# Sign the kernel if the user opted for MOK signing
+if [ "$SIGNKERNEL" = "y" ]; then
+  echo "Signing kernel with MOK key..."
+  sudo sbsign --key "$MOK_DIR/MOK.priv" --cert "$MOK_DIR/MOK.der" \
+    /boot/vmlinuz-7.0.0-30-rdtsc --output /boot/vmlinuz-7.0.0-30-rdtsc
+  echo "Kernel signed successfully."
+fi
+
 echo "Generating initrd.img..."
 sudo update-initramfs -c -k 7.0.0-30-rdtsc
 echo "Updating GRUB bootloader..."
