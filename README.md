@@ -12,7 +12,7 @@ Don't forget to disable rdtscp in your qemu xml config like so:
 
 You can play with ticks if you want to:
 
-* Open kernel-patch-7.0.0-30.patch in text editor
+* Open kernel-patch-7.0.0-34.patch in text editor
 * Find handle_rdtsc function
 * Change **u64 fake_diff =  diff / 16;**
 * 16 is a divider of actual difference in timestamp, you can increase and decrease it
@@ -21,7 +21,7 @@ You can play with ticks if you want to:
 
 Run the bash script and everything will be done for you:
 
-* sudo bash kernel-patch-7.0.0-30.sh
+* sudo bash kernel-patch-7.0.0-34.sh
 
 # Applying ACS Override Patch
 

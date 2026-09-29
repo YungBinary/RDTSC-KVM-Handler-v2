@@ -1,6 +1,6 @@
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -4698,11 +4698,13 @@
+@@ -4715,11 +4715,13 @@
  	 * Not used by KVM, but fully supported for nesting, i.e. are allowed in
  	 * vmcs12 and propagated to vmcs02 when set in vmcs12.
  	 */
@@ -16,7 +16,7 @@
  	/* INTR_WINDOW_EXITING and NMI_WINDOW_EXITING are toggled dynamically */
  	exec_control &= ~(CPU_BASED_INTR_WINDOW_EXITING |
  			  CPU_BASED_NMI_WINDOW_EXITING);
-@@ -4734,6 +4736,41 @@
+@@ -4751,6 +4753,41 @@
  	return exec_control;
  }
  

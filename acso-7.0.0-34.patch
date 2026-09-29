@@ -20,10 +20,10 @@ diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/adm
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
-@@ -4815,6 +4815,107 @@
+@@ -4819,6 +4819,107 @@
  	return false;
  }
-
+ 
 +static bool acs_on_downstream;
 +static bool acs_on_multifunction;
 +
@@ -128,11 +128,11 @@ diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
  /*
   * Many Intel PCH Root Ports do provide ACS-like features to disable peer
   * transactions and validate bus numbers in requests, but do not provide an
-@@ -5269,6 +5370,7 @@
+@@ -5254,6 +5355,7 @@
  	{ PCI_VENDOR_ID_ZHAOXIN, PCI_ANY_ID, pci_quirk_zhaoxin_pcie_ports_acs },
  	/* Wangxun nics */
  	{ PCI_VENDOR_ID_WANGXUN, PCI_ANY_ID, pci_quirk_wangxun_nic_acs },
 +	{ PCI_ANY_ID, PCI_ANY_ID, pcie_acs_overrides },
  	{ 0 }
  };
-
+ 
