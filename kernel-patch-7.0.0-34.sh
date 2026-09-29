@@ -12,12 +12,27 @@ read -p "Delete pre-existing kernels with -rdtsc in the name? [y/n] " DELETEOLDK
 read -p "Would you like to apply the ACS override patch for PCI devices? [y/n] " APPLYACS
 read -p "Make the Grub bootloader menu visible? [y/n] " GRUBVISIBLE
 
-# Detect Secure Boot
-if command -v mokutil &>/dev/null; then
-  if mokutil --sb-state 2>/dev/null | grep -qi "SecureBoot enabled"; then
-    echo "WARNING: Secure Boot is ENABLED."
-    echo "Custom kernels will fail to boot with 'bad shim signature' unless"
-    echo "disable Secure Boot in BIOS settings."
+# Detect Secure Boot and offer to sign the kernel with the MOK key DKMS already uses for modules
+MOK_DIR="/var/lib/shim-signed/mok"
+SIGNKERNEL="n"
+if command -v mokutil &>/dev/null && mokutil --sb-state 2>/dev/null | grep -qi "SecureBoot enabled"; then
+  echo "Secure Boot is ENABLED."
+  read -p "Sign the kernel with your MOK key ($MOK_DIR) so it can boot with Secure Boot? [y/n] " SIGNKERNEL
+  if [ "$SIGNKERNEL" = "y" ]; then
+    if ! sudo test -f "$MOK_DIR/MOK.priv" || ! sudo test -f "$MOK_DIR/MOK.der"; then
+      echo "ERROR: No MOK key found in $MOK_DIR. Create and enroll one first, then reboot and complete the enrollment:"
+      echo "  sudo update-secureboot-policy --new-key"
+      echo "  sudo update-secureboot-policy --enroll-key"
+      exit 1
+    fi
+    if ! mokutil --test-key "$MOK_DIR/MOK.der" 2>/dev/null | grep -q "already enrolled"; then
+      echo "ERROR: $MOK_DIR/MOK.der is not enrolled. Enroll it, then reboot and complete the enrollment:"
+      echo "  sudo mokutil --import $MOK_DIR/MOK.der"
+      exit 1
+    fi
+  else
+    echo "WARNING: The kernel will be unsigned. It will fail to boot with 'bad shim signature'"
+    echo "until you disable Secure Boot in your BIOS/UEFI settings."
     read -p "Press any key to continue..."
   fi
 fi
@@ -29,6 +44,7 @@ echo "====================================================================="
 echo " Delete old -rdtsc kernels: $DELETEOLDKERNELS"
 echo " ACS override patch:        $APPLYACS"
 echo " Grub menu visible:         $GRUBVISIBLE"
+echo " Sign kernel (Secure Boot): $SIGNKERNEL"
 echo " Build cores:               $(nproc)"
 echo "====================================================================="
 echo ""
@@ -40,6 +56,16 @@ fi
 
 sudo apt update
 sudo apt install dpkg-dev wget -y
+if [ "$SIGNKERNEL" = "y" ]; then
+  sudo apt install sbsigntool -y
+fi
+
+# nvidia-dkms and other DKMS packages only rebuild for the running and newest packaged kernel on upgrade,
+# so a driver update while booted into another kernel would leave -rdtsc with a stale module
+if ! grep -q '^autoinstall_all_kernels=' /etc/dkms/framework.conf; then
+  echo "Configuring DKMS to rebuild modules for all installed kernels..."
+  echo 'autoinstall_all_kernels="yes"' | sudo tee -a /etc/dkms/framework.conf > /dev/null
+fi
 
 if [ "$DELETEOLDKERNELS" = "y" ]; then
   echo "Removing existing kernels that contain -rdtsc in the name..."
@@ -91,30 +117,30 @@ fi
 make -j$CORES
 echo "Installing kernel modules..."
 sudo make modules_install -j$CORES
-echo "Installing kernel headers..."
-sudo make headers_install -j$CORES
-echo "Installing kernel..."
-sudo make install
-echo "Generating initrd.img..."
-sudo update-initramfs -c -k 7.0.0-34-rdtsc
-echo "Updating GRUB bootloader..."
-sudo grub-mkconfig -o /boot/grub/grub.cfg
 
-# Install kernel headers so DKMS and out-of-tree module builds work
+# Install kernel headers before the kernel so DKMS (run by installkernel) builds against them,
+# and they keep working after the source tree is cleaned up
 HDRSDIR="/usr/src/linux-headers-7.0.0-34-rdtsc"
 echo "Installing kernel headers to $HDRSDIR..."
-sudo mkdir -p "$HDRSDIR"
-sudo cp .config Module.symvers Makefile "$HDRSDIR/"
-sudo cp -a include scripts arch/x86/include "$HDRSDIR/"
-sudo mkdir -p "$HDRSDIR/arch/x86"
-sudo cp -a arch/x86/Makefile "$HDRSDIR/arch/x86/"
-sudo cp -a tools/objtool/objtool "$HDRSDIR/tools/objtool/objtool" 2>/dev/null || true
-# Fix the build symlink in /lib/modules so module builds find headers
+sudo rm -rf "$HDRSDIR"
+sudo make run-command KBUILD_RUN_COMMAND="$PWD/scripts/package/install-extmod-build $HDRSDIR"
+sudo cp .config "$HDRSDIR/"
 sudo rm -f /lib/modules/7.0.0-34-rdtsc/build
 sudo ln -s "$HDRSDIR" /lib/modules/7.0.0-34-rdtsc/build
 
+KIMAGE=arch/x86/boot/bzImage
+if [ "$SIGNKERNEL" = "y" ]; then
+  echo "Signing kernel with MOK key..."
+  sudo openssl x509 -inform der -in "$MOK_DIR/MOK.der" -out MOK.pem
+  sudo sbsign --key "$MOK_DIR/MOK.priv" --cert MOK.pem --output arch/x86/boot/bzImage.signed "$KIMAGE"
+  sudo rm -f MOK.pem
+  KIMAGE=arch/x86/boot/bzImage.signed
+fi
+
+echo "Installing kernel..."
+sudo installkernel 7.0.0-34-rdtsc "$KIMAGE" System.map /boot
+
 echo "Cleaning up..."
-# Leave the source tree so the glob matches it and the downloaded .dsc/.orig.tar.gz/.diff.gz
 cd ..
 sudo rm -rf ./linux-hwe-*
 
