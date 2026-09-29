@@ -12,23 +12,59 @@ read -p "Delete pre-existing kernels with -rdtsc in the name? [y/n] " DELETEOLDK
 read -p "Would you like to apply the ACS override patch for PCI devices? [y/n] " APPLYACS
 read -p "Make the Grub bootloader menu visible? [y/n] " GRUBVISIBLE
 
-# Detect Secure Boot and offer to sign the kernel with the MOK key DKMS already uses for modules
+# Detect Secure Boot and offer to sign the kernel.
+# Two MOK keys are needed: Ubuntu's DKMS key signs modules, but it carries the module-signing-only EKU
+# (1.3.6.1.4.1.2312.16.1.2) which shim refuses for kernels ("bad shim signature"), so the kernel
+# gets its own key with only the Code Signing EKU.
 MOK_DIR="/var/lib/shim-signed/mok"
+KERNEL_KEY_DIR="/var/lib/rdtsc-kvm-handler"
 SIGNKERNEL="n"
+MOK_PENDING="n"
 if command -v mokutil &>/dev/null && mokutil --sb-state 2>/dev/null | grep -qi "SecureBoot enabled"; then
   echo "Secure Boot is ENABLED."
-  read -p "Sign the kernel with your MOK key ($MOK_DIR) so it can boot with Secure Boot? [y/n] " SIGNKERNEL
+  read -p "Sign the kernel and modules with MOK keys so they can boot with Secure Boot? [y/n] " SIGNKERNEL
   if [ "$SIGNKERNEL" = "y" ]; then
     if ! sudo test -f "$MOK_DIR/MOK.priv" || ! sudo test -f "$MOK_DIR/MOK.der"; then
-      echo "ERROR: No MOK key found in $MOK_DIR. Create and enroll one first, then reboot and complete the enrollment:"
-      echo "  sudo update-secureboot-policy --new-key"
-      echo "  sudo update-secureboot-policy --enroll-key"
-      exit 1
+      echo "Creating DKMS module signing key in $MOK_DIR..."
+      sudo update-secureboot-policy --new-key
     fi
-    if ! mokutil --test-key "$MOK_DIR/MOK.der" 2>/dev/null | grep -q "already enrolled"; then
-      echo "ERROR: $MOK_DIR/MOK.der is not enrolled. Enroll it, then reboot and complete the enrollment:"
-      echo "  sudo mokutil --import $MOK_DIR/MOK.der"
-      exit 1
+    if ! sudo test -f "$KERNEL_KEY_DIR/kernel.priv" || ! sudo test -f "$KERNEL_KEY_DIR/kernel.der"; then
+      echo "Creating kernel signing key in $KERNEL_KEY_DIR..."
+      sudo mkdir -p -m 700 "$KERNEL_KEY_DIR"
+      sudo tee "$KERNEL_KEY_DIR/kernel-key.cnf" > /dev/null <<EOF
+[ req ]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_kernel
+prompt = no
+[ req_distinguished_name ]
+CN = $(hostname -s | cut -b1-31) RDTSC kernel signing key
+[ v3_kernel ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical,CA:FALSE
+extendedKeyUsage = codeSigning
+EOF
+      sudo openssl req -config "$KERNEL_KEY_DIR/kernel-key.cnf" -new -x509 -newkey rsa:2048 -nodes \
+        -days 36500 -outform DER -keyout "$KERNEL_KEY_DIR/kernel.priv" -out "$KERNEL_KEY_DIR/kernel.der"
+      sudo chmod 600 "$KERNEL_KEY_DIR/kernel.priv"
+    fi
+
+    # Queue any key that isn't enrolled yet; shim's MokManager finishes the enrollment on the next boot
+    ENROLL=()
+    for cert in "$MOK_DIR/MOK.der" "$KERNEL_KEY_DIR/kernel.der"; do
+      KEYSTATE=$(sudo mokutil --test-key "$cert" 2>/dev/null || true)
+      if echo "$KEYSTATE" | grep -q "enrollment request"; then
+        MOK_PENDING="y"
+      elif echo "$KEYSTATE" | grep -q "is not enrolled"; then
+        ENROLL+=("$cert")
+      fi
+    done
+    if [ ${#ENROLL[@]} -gt 0 ]; then
+      echo ""
+      echo "Enrolling signing keys: ${ENROLL[*]}"
+      echo "Choose a one-time password. You will need to type it on the next boot to confirm the enrollment."
+      sudo mokutil --import "${ENROLL[@]}"
+      MOK_PENDING="y"
     fi
   else
     echo "WARNING: The kernel will be unsigned. It will fail to boot with 'bad shim signature'"
@@ -130,10 +166,11 @@ sudo ln -s "$HDRSDIR" /lib/modules/7.0.0-34-rdtsc/build
 
 KIMAGE=arch/x86/boot/bzImage
 if [ "$SIGNKERNEL" = "y" ]; then
-  echo "Signing kernel with MOK key..."
-  sudo openssl x509 -inform der -in "$MOK_DIR/MOK.der" -out MOK.pem
-  sudo sbsign --key "$MOK_DIR/MOK.priv" --cert MOK.pem --output arch/x86/boot/bzImage.signed "$KIMAGE"
-  sudo rm -f MOK.pem
+  echo "Signing kernel with $KERNEL_KEY_DIR/kernel.der..."
+  # sbsign needs the certificate in PEM format
+  sudo openssl x509 -inform der -in "$KERNEL_KEY_DIR/kernel.der" -out kernel.pem
+  sudo sbsign --key "$KERNEL_KEY_DIR/kernel.priv" --cert kernel.pem --output arch/x86/boot/bzImage.signed "$KIMAGE"
+  sudo rm -f kernel.pem
   KIMAGE=arch/x86/boot/bzImage.signed
 fi
 
@@ -161,6 +198,20 @@ if [ "$APPLYACS" = "y" ]; then
       sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 intel_iommu=on pcie_acs_override=downstream"/' /etc/default/grub
       sudo update-grub
   fi
+fi
+
+if [ "$MOK_PENDING" = "y" ]; then
+  echo ""
+  echo "====================================================================="
+  echo " ACTION REQUIRED: finish enrolling the signing keys on the next boot"
+  echo "====================================================================="
+  echo " 1. Reboot. A blue 'Perform MOK management' screen (MokManager) appears."
+  echo " 2. Select 'Enroll MOK' -> 'Continue' -> 'Yes'."
+  echo " 3. Type the one-time password you chose, then reboot."
+  echo " If you miss the screen, re-run this script or 'sudo mokutil --import <key>' and reboot again."
+  echo " If the keys are not enrolled, 7.0.0-34-rdtsc will fail to boot with 'bad shim signature'."
+  echo "====================================================================="
+  echo ""
 fi
 
 echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 7.0.0-34-rdtsc.'
