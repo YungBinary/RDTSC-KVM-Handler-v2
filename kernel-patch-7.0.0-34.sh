@@ -1,9 +1,5 @@
 #!/bin/bash
 # Patch rdtsc for Linux kernel 7.0.0-34-generic
-
-# Abort on any failed step (e.g. a rejected patch hunk) instead of building a broken kernel
-set -e
-
 SRCVERSION="7.0.0-34.34~24.04.1"
 
 base64 -d <<< "X19fX18uX19fLiAgICAgICAgICAgICAgICAgICBfX19fX19fX19fLl9fICAgICAgICAgICAgICAgICAgICAgICAgICAgIApcX18gIHwgICB8X18gX18gIF9fX18gICAgX19fX1xfX19fX18gICBcX198IF9fX18gX19fX18gX19fX19fXyBfX18uX18uCiAvICAgfCAgIHwgIHwgIFwvICAgIFwgIC8gX19fXHwgICAgfCAgXy8gIHwvICAgIFxcX18gIFxcXyAgX18gPCAgIHwgIHwKIFxfX19fICAgfCAgfCAgLyAgIHwgIFwvIC9fLyAgPiAgICB8ICAgXCAgfCAgIHwgIFwvIF9fIFx8ICB8IFwvXF9fXyAgfAogLyBfX19fX198X19fXy98X19ffCAgL1xfX18gIC98X19fX19fICAvX198X19ffCAgKF9fX18gIC9fX3wgICAvIF9fX198CiBcLyAgICAgICAgICAgICAgICAgXC8vX19fX18vICAgICAgICBcLyAgICAgICAgXC8gICAgIFwvICAgICAgIFwvICAgICAK"
@@ -52,7 +48,6 @@ fi
 
 echo "Removing any folders matching ./linux-hwe-7.0-7.0.0"
 sudo rm -rf ./linux-hwe-7.0-7.0.0
-# apt source always fetches the newest linux-hwe-7.0 in the archive, so pull the exact version from Launchpad instead
 echo "Downloading source: linux-hwe-7.0 $SRCVERSION..."
 LPURL="https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/linux-hwe-7.0/$SRCVERSION"
 for f in linux-hwe-7.0_7.0.0.orig.tar.gz "linux-hwe-7.0_$SRCVERSION.diff.gz" "linux-hwe-7.0_$SRCVERSION.dsc"; do
