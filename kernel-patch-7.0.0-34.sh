@@ -43,7 +43,7 @@ if [ "$PROCEED" != "y" ]; then
 fi
 
 sudo apt update
-sudo apt install dpkg-dev ubuntu-dev-tools -y
+sudo apt install dpkg-dev wget -y
 
 if [ "$DELETEOLDKERNELS" = "y" ]; then
   echo "Removing existing kernels that contain -rdtsc in the name..."
@@ -54,7 +54,11 @@ echo "Removing any folders matching ./linux-hwe-7.0-7.0.0"
 sudo rm -rf ./linux-hwe-7.0-7.0.0
 # apt source always fetches the newest linux-hwe-7.0 in the archive, so pull the exact version from Launchpad instead
 echo "Downloading source: linux-hwe-7.0 $SRCVERSION..."
-pull-lp-source linux-hwe-7.0 "$SRCVERSION"
+LPURL="https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/linux-hwe-7.0/$SRCVERSION"
+for f in linux-hwe-7.0_7.0.0.orig.tar.gz "linux-hwe-7.0_$SRCVERSION.diff.gz" "linux-hwe-7.0_$SRCVERSION.dsc"; do
+  wget -nv -O "$f" "$LPURL/$f"
+done
+dpkg-source -x "linux-hwe-7.0_$SRCVERSION.dsc"
 echo "Changing permissions on downloaded source directory..."
 sudo chown -R $USER:$USER linux-hwe-7.0-7.0.0
 sudo chmod -R 777 linux-hwe-7.0-7.0.0
