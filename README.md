@@ -8,6 +8,27 @@ Don't forget to disable rdtscp in your qemu xml config like so:
 
 <qemu:arg value="host,rdtscp=off"/>
 
+# Guest single-step exceptions
+
+The RDTSC handler must finish with `kvm_skip_emulated_instruction(vcpu)`, not
+the VMX-local `skip_emulated_instruction(vcpu)`. The common KVM helper advances
+guest RIP and handles a guest-set trap flag (TF), including queuing the required
+debug exception. Calling the VMX-local helper directly skips that handling.
+The guest can then execute one more instruction before receiving its single-step
+exception. For `popfq; rdtsc; nop`, the exception should identify the NOP, not
+the instruction after it.
+
+This correction requires rebuilding and booting the patched host kernel; an
+already loaded KVM module is unaffected by editing this patch. No QEMU source
+change is required for this completion-path fix. The build script reads this
+local patch when preparing the kernel sources.
+
+An independent Windows x64 regression probe is in `tests/tf-exception/`.
+Run it without a debugger in the guest before and after installing the fixed
+kernel. It checks the exception address and saved RIP for RDTSC and CPUID, plus
+RDTSCP when advertised. This project normally disables RDTSCP, so that case
+will be skipped with the recommended VM configuration.
+
 # Changing Timer
 
 You can play with ticks if you want to:
