@@ -1,10 +1,10 @@
 #!/bin/bash
-# Patch rdtsc for Linux kernel 7.0.0-34-generic
-SRCVERSION="7.0.0-34.34~24.04.1"
+# Patch rdtsc for Linux kernel 7.0.0-38-generic
+SRCVERSION="7.0.0-38.38~24.04.4"
 
 base64 -d <<< "X19fX18uX19fLiAgICAgICAgICAgICAgICAgICBfX19fX19fX19fLl9fICAgICAgICAgICAgICAgICAgICAgICAgICAgIApcX18gIHwgICB8X18gX18gIF9fX18gICAgX19fX1xfX19fX18gICBcX198IF9fX18gX19fX18gX19fX19fXyBfX18uX18uCiAvICAgfCAgIHwgIHwgIFwvICAgIFwgIC8gX19fXHwgICAgfCAgXy8gIHwvICAgIFxcX18gIFxcXyAgX18gPCAgIHwgIHwKIFxfX19fICAgfCAgfCAgLyAgIHwgIFwvIC9fLyAgPiAgICB8ICAgXCAgfCAgIHwgIFwvIF9fIFx8ICB8IFwvXF9fXyAgfAogLyBfX19fX198X19fXy98X19ffCAgL1xfX18gIC98X19fX19fICAvX198X19ffCAgKF9fX18gIC9fX3wgICAvIF9fX198CiBcLyAgICAgICAgICAgICAgICAgXC8vX19fX18vICAgICAgICBcLyAgICAgICAgXC8gICAgIFwvICAgICAgIFwvICAgICAK"
 echo " RDTSC KVM Handler - Kernel Builder"
-echo " Target: 7.0.0-34-rdtsc"
+echo " Target: 7.0.0-38-rdtsc"
 echo "====================================================================="
 echo ""
 
@@ -125,10 +125,10 @@ if ! head -1 debian.hwe-7.0/changelog | grep -qF "($SRCVERSION)"; then
   head -1 debian.hwe-7.0/changelog
   exit 1
 fi
-patch -p1 < ../kernel-patch-7.0.0-34.patch
+patch -p1 < ../kernel-patch-7.0.0-38.patch
 
 if [ "$APPLYACS" = "y" ]; then
-  patch -p1 < ../acso-7.0.0-34.patch
+  patch -p1 < ../acso-7.0.0-38.patch
 fi
 
 # Use all available cores for make
@@ -139,15 +139,15 @@ sed -i 's/KBUILD_CFLAGS += -Wdeclaration-after-statement/#KBUILD_CFLAGS += -Wdec
 
 # Fix the kernel version
 sed -i 's/^SUBLEVEL = .*/SUBLEVEL = 0/' Makefile
-sed -i 's/^EXTRAVERSION =.*/EXTRAVERSION = -34/' Makefile
+sed -i 's/^EXTRAVERSION =.*/EXTRAVERSION = -38/' Makefile
 
 # Build and install the kernel
 sudo apt install git libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libdw-dev libdebuginfod-dev autoconf llvm build-essential -y
 cp ../.config .
 make olddefconfig
 KRELEASE=$(make -s kernelrelease)
-if [ "$KRELEASE" != "7.0.0-34-rdtsc" ]; then
-  echo "ERROR: Kernel release is '$KRELEASE', expected '7.0.0-34-rdtsc'"
+if [ "$KRELEASE" != "7.0.0-38-rdtsc" ]; then
+  echo "ERROR: Kernel release is '$KRELEASE', expected '7.0.0-38-rdtsc'"
   exit 1
 fi
 make -j$CORES
@@ -156,13 +156,13 @@ sudo make modules_install -j$CORES
 
 # Install kernel headers before the kernel so DKMS (run by installkernel) builds against them,
 # and they keep working after the source tree is cleaned up
-HDRSDIR="/usr/src/linux-headers-7.0.0-34-rdtsc"
+HDRSDIR="/usr/src/linux-headers-7.0.0-38-rdtsc"
 echo "Installing kernel headers to $HDRSDIR..."
 sudo rm -rf "$HDRSDIR"
 sudo make run-command KBUILD_RUN_COMMAND="$PWD/scripts/package/install-extmod-build $HDRSDIR"
 sudo cp .config "$HDRSDIR/"
-sudo rm -f /lib/modules/7.0.0-34-rdtsc/build
-sudo ln -s "$HDRSDIR" /lib/modules/7.0.0-34-rdtsc/build
+sudo rm -f /lib/modules/7.0.0-38-rdtsc/build
+sudo ln -s "$HDRSDIR" /lib/modules/7.0.0-38-rdtsc/build
 
 KIMAGE=arch/x86/boot/bzImage
 if [ "$SIGNKERNEL" = "y" ]; then
@@ -175,7 +175,7 @@ if [ "$SIGNKERNEL" = "y" ]; then
 fi
 
 echo "Installing kernel..."
-sudo installkernel 7.0.0-34-rdtsc "$KIMAGE" System.map /boot
+sudo installkernel 7.0.0-38-rdtsc "$KIMAGE" System.map /boot
 
 echo "Cleaning up..."
 cd ..
@@ -209,9 +209,9 @@ if [ "$MOK_PENDING" = "y" ]; then
   echo " 2. Select 'Enroll MOK' -> 'Continue' -> 'Yes'."
   echo " 3. Type the one-time password you chose, then reboot."
   echo " If you miss the screen, re-run this script or 'sudo mokutil --import <key>' and reboot again."
-  echo " If the keys are not enrolled, 7.0.0-34-rdtsc will fail to boot with 'bad shim signature'."
+  echo " If the keys are not enrolled, 7.0.0-38-rdtsc will fail to boot with 'bad shim signature'."
   echo "====================================================================="
   echo ""
 fi
 
-echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 7.0.0-34-rdtsc.'
+echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 7.0.0-38-rdtsc.'

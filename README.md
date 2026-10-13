@@ -21,16 +21,18 @@ handling.
 
 You can play with ticks if you want to:
 
-* Open kernel-patch-7.0.0-34.patch in text editor
+* Open kernel-patch-7.0.0-38.patch in text editor
 * Find handle_rdtsc function
 * Change **u64 fake_diff =  diff / 16;**
 * 16 is a divider of actual difference in timestamp, you can increase and decrease it
 
 # Getting Started
 
-Run the bash script and everything will be done for you:
+The script builds Ubuntu 24.04 HWE source `7.0.0-38.38~24.04.4` as `7.0.0-38-rdtsc`.
 
-* sudo bash kernel-patch-7.0.0-34.sh
+Run the bash script from this repository directory and everything will be done for you:
+
+* sudo bash kernel-patch-7.0.0-38.sh
 
 # Applying ACS Override Patch
 
