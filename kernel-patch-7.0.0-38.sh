@@ -1,10 +1,12 @@
 #!/bin/bash
 # Patch rdtsc for Linux kernel 7.0.0-38-generic
 SRCVERSION="7.0.0-38.38~24.04.4"
+UPSTREAM_VERSION="7.0.14"
+KERNEL_RELEASE="7.0.0-38-rdtsc"
 
 base64 -d <<< "X19fX18uX19fLiAgICAgICAgICAgICAgICAgICBfX19fX19fX19fLl9fICAgICAgICAgICAgICAgICAgICAgICAgICAgIApcX18gIHwgICB8X18gX18gIF9fX18gICAgX19fX1xfX19fX18gICBcX198IF9fX18gX19fX18gX19fX19fXyBfX18uX18uCiAvICAgfCAgIHwgIHwgIFwvICAgIFwgIC8gX19fXHwgICAgfCAgXy8gIHwvICAgIFxcX18gIFxcXyAgX18gPCAgIHwgIHwKIFxfX19fICAgfCAgfCAgLyAgIHwgIFwvIC9fLyAgPiAgICB8ICAgXCAgfCAgIHwgIFwvIF9fIFx8ICB8IFwvXF9fXyAgfAogLyBfX19fX198X19fXy98X19ffCAgL1xfX18gIC98X19fX19fICAvX198X19ffCAgKF9fX18gIC9fX3wgICAvIF9fX198CiBcLyAgICAgICAgICAgICAgICAgXC8vX19fX18vICAgICAgICBcLyAgICAgICAgXC8gICAgIFwvICAgICAgIFwvICAgICAK"
 echo " RDTSC KVM Handler - Kernel Builder"
-echo " Target: 7.0.0-38-rdtsc"
+echo " Target: $KERNEL_RELEASE (upstream $UPSTREAM_VERSION)"
 echo "====================================================================="
 echo ""
 
@@ -137,32 +139,37 @@ CORES=$(nproc)
 # Fix for error: ISO C90 forbids mixed declarations and code
 sed -i 's/KBUILD_CFLAGS += -Wdeclaration-after-statement/#KBUILD_CFLAGS += -Wdeclaration-after-statement/' Makefile
 
-# Fix the kernel version
-sed -i 's/^SUBLEVEL = .*/SUBLEVEL = 0/' Makefile
-sed -i 's/^EXTRAVERSION =.*/EXTRAVERSION = -38/' Makefile
-
 # Build and install the kernel
 sudo apt install git libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libdw-dev libdebuginfod-dev autoconf llvm build-essential -y
 cp ../.config .
 make olddefconfig
-KRELEASE=$(make -s kernelrelease)
-if [ "$KRELEASE" != "7.0.0-38-rdtsc" ]; then
-  echo "ERROR: Kernel release is '$KRELEASE', expected '7.0.0-38-rdtsc'"
+
+# Ubuntu deliberately keeps the upstream source version (7.0.14) separate from
+# its ABI release name (7.0.0-38).  Keep SUBLEVEL intact so LINUX_VERSION_CODE
+# remains correct, and override only KERNELRELEASE for uname/module paths.
+ACTUAL_UPSTREAM_VERSION=$(make -s kernelversion)
+if [ "$ACTUAL_UPSTREAM_VERSION" != "$UPSTREAM_VERSION" ]; then
+  echo "ERROR: Upstream kernel version is '$ACTUAL_UPSTREAM_VERSION', expected '$UPSTREAM_VERSION'"
   exit 1
 fi
-make -j$CORES
+ACTUAL_KERNEL_RELEASE=$(make -s KERNELRELEASE="$KERNEL_RELEASE" kernelrelease)
+if [ "$ACTUAL_KERNEL_RELEASE" != "$KERNEL_RELEASE" ]; then
+  echo "ERROR: Kernel release is '$ACTUAL_KERNEL_RELEASE', expected '$KERNEL_RELEASE'"
+  exit 1
+fi
+make KERNELRELEASE="$KERNEL_RELEASE" -j"$CORES"
 echo "Installing kernel modules..."
-sudo make modules_install -j$CORES
+sudo make KERNELRELEASE="$KERNEL_RELEASE" modules_install -j"$CORES"
 
 # Install kernel headers before the kernel so DKMS (run by installkernel) builds against them,
 # and they keep working after the source tree is cleaned up
-HDRSDIR="/usr/src/linux-headers-7.0.0-38-rdtsc"
+HDRSDIR="/usr/src/linux-headers-$KERNEL_RELEASE"
 echo "Installing kernel headers to $HDRSDIR..."
 sudo rm -rf "$HDRSDIR"
-sudo make run-command KBUILD_RUN_COMMAND="$PWD/scripts/package/install-extmod-build $HDRSDIR"
+sudo make KERNELRELEASE="$KERNEL_RELEASE" run-command KBUILD_RUN_COMMAND="$PWD/scripts/package/install-extmod-build $HDRSDIR"
 sudo cp .config "$HDRSDIR/"
-sudo rm -f /lib/modules/7.0.0-38-rdtsc/build
-sudo ln -s "$HDRSDIR" /lib/modules/7.0.0-38-rdtsc/build
+sudo rm -f "/lib/modules/$KERNEL_RELEASE/build"
+sudo ln -s "$HDRSDIR" "/lib/modules/$KERNEL_RELEASE/build"
 
 KIMAGE=arch/x86/boot/bzImage
 if [ "$SIGNKERNEL" = "y" ]; then
@@ -175,7 +182,7 @@ if [ "$SIGNKERNEL" = "y" ]; then
 fi
 
 echo "Installing kernel..."
-sudo installkernel 7.0.0-38-rdtsc "$KIMAGE" System.map /boot
+sudo installkernel "$KERNEL_RELEASE" "$KIMAGE" System.map /boot
 
 echo "Cleaning up..."
 cd ..
@@ -214,4 +221,4 @@ if [ "$MOK_PENDING" = "y" ]; then
   echo ""
 fi
 
-echo 'All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select 7.0.0-38-rdtsc.'
+echo "All finished. In the Grub menu, go to [Advanced Options for Ubuntu] and select $KERNEL_RELEASE."
